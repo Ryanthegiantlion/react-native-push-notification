@@ -102,6 +102,14 @@ Notifications.configure = function(options: Object) {
 		this._requestPermissions();
 	}
 
+	if (this.pendingNotifications) {
+		this.pendingNotifications.forEach(function(notification) => {
+			this._onNotification(notification);
+		})
+
+		this.pendingNotifications = null;
+	}
+
 };
 
 /* Unregister */
@@ -200,8 +208,8 @@ Notifications._onNotification = function(data, isFromBackground = null) {
 		);
 	}
 
-	if ( this.onNotification !== false ) {
-		if ( Platform.OS === 'ios' ) {
+	if ( Platform.OS === 'ios' ) {
+		if (this.onNotification) {
 			this.onNotification({
 				foreground: ! isFromBackground,
 				userInteraction: isFromBackground,
@@ -212,21 +220,36 @@ Notifications._onNotification = function(data, isFromBackground = null) {
 				sound: data.getSound()
 			});
 		} else {
-			var notificationData = {
+			this.pendingNotifications.push({
 				foreground: ! isFromBackground,
-				...data
-			};
-
-			if ( typeof notificationData.data === 'string' ) {
-				try {
-					notificationData.data = JSON.parse(notificationData.data);
-				} catch(e) {
-					/* void */
-				}
-			}
-
-			this.onNotification(notificationData);
+				userInteraction: isFromBackground,
+				message: data.getMessage(),
+				data: data.getData(),
+				badge: data.getBadgeCount(),
+				alert: data.getAlert(),
+				sound: data.getSound()
+			})
 		}
+	} else {
+		var notificationData = {
+			foreground: ! isFromBackground,
+			...data
+		};
+
+		if ( typeof notificationData.data === 'string' ) {
+			try {
+				notificationData.data = JSON.parse(notificationData.data);
+			} catch(e) {
+				/* void */
+			}
+		}
+
+		if (this.onNotification) {
+			this.onNotification(notificationData);	
+		} else {
+			this.pendingNotifications.push(notificationData);
+		}
+		
 	}
 };
 
